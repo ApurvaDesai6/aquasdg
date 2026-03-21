@@ -1,0 +1,190 @@
+// AquaSDG: AI-Powered Freshwater Access Intelligence Platform
+// Database Schema for Water Access Intelligence
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+generator client_py {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Geographic Regions - Admin Level 2 (Districts/Counties)
+model Region {
+  id                String   @id @default(cuid())
+  name              String
+  country           String
+  countryCode       String   // ISO 3166-1 alpha-3
+  adminLevel1       String?  // State/Province
+  adminLevel2       String?  // District/County
+  latitude          Float
+  longitude         Float
+  population        Int      @default(0)
+  areaKm2           Float    @default(0)
+  
+  // Risk Assessment Data
+  riskLevel         String   @default("moderate") // critical, high, moderate, low
+  riskScore         Float    @default(0)          // 0-100 composite score
+  
+  // Water Access Indicators (SDG 6)
+  basicWaterAccess    Float   @default(0)  // % with basic water access
+  safelyManagedAccess Float   @default(0)  // % with safely managed water
+  waterStressIndex    Float   @default(0)  // WRI Aqueduct score 0-5
+  groundwaterPotential Float  @default(0)  // 0-1 potential score
+  floodRiskScore      Float   @default(0)  // 0-100 flood risk
+  
+  // Climate Vulnerability
+  climateVulnerability Float  @default(0)  // 0-1 vulnerability index
+  droughtRiskScore    Float   @default(0)  // 0-100 drought risk
+  
+  // Infrastructure Gap
+  infrastructureGap   Float   @default(0)  // 0-1 gap score
+  
+  // Metadata
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  interventions     Intervention[]
+  simulations       Simulation[]
+  recommendations   Recommendation[]
+  floodEvents       FloodEvent[]
+  
+  @@index([countryCode])
+  @@index([riskLevel])
+  @@index([riskScore])
+}
+
+// Historical Flood Events (Google Groundsource)
+model FloodEvent {
+  id              String   @id @default(cuid())
+  regionId        String
+  region          Region   @relation(fields: [regionId], references: [id])
+  
+  eventDate       DateTime
+  severity        Float    @default(0)  // 0-1 severity
+  duration        Int      @default(0)  // hours
+  affectedAreaKm2 Float   @default(0)
+  dataSource      String   @default("groundsource")
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([regionId])
+  @@index([eventDate])
+}
+
+// Water Intervention Types
+model Intervention {
+  id              String   @id @default(cuid())
+  regionId        String
+  region          Region   @relation(fields: [regionId], references: [id])
+  
+  type            String   // borehole, rainwater_harvesting, surface_water, 
+                          // managed_aquifer_recharge, piped_extension, desalination
+  
+  name            String
+  description     String?
+  
+  // Cost Analysis
+  estimatedCost   Float    @default(0)   // USD
+  costPerPerson   Float    @default(0)   // USD per person served
+  populationServed Int    @default(0)   // people
+  
+  // Suitability
+  suitabilityScore Float  @default(0)   // 0-1 ML prediction confidence
+  isRecommended   Boolean  @default(false)
+  
+  // Implementation
+  status          String   @default("proposed") // proposed, planned, active, completed
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([regionId])
+  @@index([type])
+}
+
+// Budget Simulation Results
+model Simulation {
+  id              String   @id @default(cuid())
+  regionId        String?
+  region          Region?  @relation(fields: [regionId], references: [id])
+  
+  // Simulation Parameters
+  totalBudget     Float    @default(0)   // USD
+  timeHorizon     Int      @default(1)   // years
+  targetRegions   String   @default("")  // JSON array of region IDs
+  
+  // Results
+  allocationPlan  String   @default("")  // JSON allocation breakdown
+  projectedImpact Float    @default(0)   // % improvement
+  populationServed Int     @default(0)   // people gaining access
+  sustainabilityScore Float @default(0)  // 0-1 long-term viability
+  
+  // Cost Effectiveness
+  costPerPerson   Float    @default(0)
+  roiScore        Float    @default(0)   // Return on Investment
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([regionId])
+}
+
+// AI-Generated Recommendations
+model Recommendation {
+  id              String   @id @default(cuid())
+  regionId        String
+  region          Region   @relation(fields: [regionId], references: [id])
+  
+  // Generated Content
+  executiveSummary String  @default("")
+  prioritizedActions String @default("")  // JSON array
+  budgetBreakdown  String  @default("")   // JSON object
+  riskFactors      String  @default("")   // JSON array
+  
+  // SDG 6 Alignment
+  sdg6Alignment    String  @default("")   // JSON metrics
+  
+  // Metadata
+  modelUsed        String  @default("gemini")
+  generatedAt      DateTime @default(now())
+  
+  createdAt        DateTime @default(now())
+  
+  @@index([regionId])
+}
+
+// Global Statistics Cache
+model GlobalStats {
+  id                String   @id @default("global")
+  
+  totalRegions      Int      @default(0)
+  criticalRegions   Int      @default(0)
+  highRiskRegions   Int      @default(0)
+  totalPopulationAtRisk Int  @default(0)
+  
+  avgWaterStress    Float    @default(0)
+  avgFloodRisk      Float    @default(0)
+  
+  lastUpdated       DateTime @default(now())
+}
+
+// Data Source Metadata
+model DataSource {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  type            String   // api, csv, geojson, etc.
+  url             String?
+  lastFetched     DateTime?
+  recordCount     Int      @default(0)
+  status          String   @default("pending") // pending, active, error
+  errorMessage    String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

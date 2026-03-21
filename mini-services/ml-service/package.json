@@ -1,0 +1,17 @@
+{
+  "name": "aqua-sdg-ml-service",
+  "version": "1.0.0",
+  "description": "ML Mini-Service for AquaSDG - AI-Powered Freshwater Access Intelligence Platform",
+  "scripts": {
+    "start": "python index.py",
+    "dev": "python index.py",
+    "install-deps": "pip install fastapi uvicorn pydantic numpy"
+  },
+  "dependencies": {},
+  "pythonDependencies": [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "pydantic>=2.5.0",
+    "numpy>=1.26.0"
+  ]
+}
