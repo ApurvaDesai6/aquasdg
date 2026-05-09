@@ -108,6 +108,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { InvestmentSimulator } from '@/components/aquasdg/investment-simulator';
 import { DataSources } from '@/components/aquasdg/data-sources';
+import { RegionDeepDive } from '@/components/aquasdg/region-deep-dive';
 
 import {
   type Region,
@@ -1472,14 +1473,9 @@ export default function AquaSDGPlatform() {
               <AnimatePresence>
                 {/* Detail Panel */}
               {selectedRegion && (
-                  <RegionDetailPanel 
+                  <RegionDeepDive 
                     region={selectedRegion}
-                    selectedIndicator={selectedIndicator}
                     onClose={() => setSelectedRegion(null)}
-                    onAnalyze={() => {
-                      setActiveTab('policy');
-                      setLeftPanelOpen(false);
-                    }}
                   />
                 )}
               </AnimatePresence>
