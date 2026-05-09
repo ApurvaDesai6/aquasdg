@@ -70,12 +70,6 @@ export default function MapView({
                       boxShadow: `0 0 10px ${color}`
                     }}
                   />
-                  
-                  {/* Pulse effect */}
-                  <div 
-                    className="absolute inset-0 rounded-full animate-ping opacity-20"
-                    style={{ backgroundColor: color }}
-                  />
                 </div>
               </MarkerContent>
               

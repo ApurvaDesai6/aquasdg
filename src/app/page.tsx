@@ -106,7 +106,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { GroundsourceExplorer } from '@/components/aquasdg/groundsource-explorer';
+import { InvestmentSimulator } from '@/components/aquasdg/investment-simulator';
 
 import {
   type Region,
@@ -858,11 +858,11 @@ function RegionDetailPanel({
           {/* Key Metrics */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-              <div className="text-[10px] text-slate-500 uppercase">Population</div>
+              <div className="text-xs text-slate-500 uppercase">Population</div>
               <div className="text-lg font-semibold text-white">{formatPopulation(region.population)}</div>
             </div>
             <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-              <div className="text-[10px] text-slate-500 uppercase">ISO Code</div>
+              <div className="text-xs text-slate-500 uppercase">ISO Code</div>
               <div className="text-lg font-semibold text-white">{region.iso3}</div>
             </div>
           </div>
@@ -872,7 +872,7 @@ function RegionDetailPanel({
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Scientific Assessment</h3>
               {insights && (
-                <Badge variant="outline" className="text-[10px] border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
+                <Badge variant="outline" className="text-xs border-cyan-500/30 text-cyan-400 bg-cyan-500/5">
                   Confidence: {insights.confidence_score * 100}%
                 </Badge>
               )}
@@ -881,14 +881,14 @@ function RegionDetailPanel({
             {loading ? (
               <div className="p-8 flex flex-col items-center justify-center bg-slate-800/20 rounded-xl border border-dashed border-slate-800">
                 <Loader2 className="w-5 h-5 text-cyan-500 animate-spin mb-2" />
-                <span className="text-[10px] text-slate-500 uppercase font-bold">Correlating Patterns...</span>
+                <span className="text-xs text-slate-500 uppercase font-bold">Correlating Patterns...</span>
               </div>
             ) : insights ? (
               <div className="space-y-3">
                 {/* Resilience Score Card */}
                 <div className="p-4 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 shadow-lg">
                   <div className="flex justify-between items-end mb-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Systemic Resilience</span>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Systemic Resilience</span>
                     <span className="text-2xl font-black text-white font-mono">{insights.resilience_score}%</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
@@ -901,7 +901,7 @@ function RegionDetailPanel({
                       style={{ width: `${insights.resilience_score}%` }} 
                     />
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-2 italic">
+                  <p className="text-xs text-slate-500 mt-2 italic">
                     {insights.resilience_score > 60 ? "Current infrastructure provides adequate buffer against near-term climate variability." : "Critical vulnerabilities detected in primary water supply redundancy."}
                   </p>
                 </div>
@@ -922,9 +922,9 @@ function RegionDetailPanel({
                         <div className="flex-1">
                           <div className="flex justify-between items-start">
                             <span className="text-xs font-bold text-slate-200">{insight.label}</span>
-                            <span className="text-[10px] font-mono text-slate-500">{insight.value}</span>
+                            <span className="text-xs font-mono text-slate-500">{insight.value}</span>
                           </div>
-                          <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">{insight.description}</p>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">{insight.description}</p>
                         </div>
                       </div>
                     );
@@ -933,16 +933,16 @@ function RegionDetailPanel({
 
                 {/* Correlations Section */}
                 <div className="pt-2">
-                  <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3">ML Field Correlations</h4>
+                  <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest mb-3">ML Field Correlations</h4>
                   <div className="space-y-2">
                     {insights.correlations.map((corr: any, i: number) => (
                       <div key={i} className="px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[9px] h-4 px-1 border-slate-700">{corr.factor_a}</Badge>
+                          <Badge variant="outline" className="text-xs h-4 px-1 border-slate-700">{corr.factor_a}</Badge>
                           <Activity className="w-3 h-3 text-slate-600" />
-                          <Badge variant="outline" className="text-[9px] h-4 px-1 border-slate-700">{corr.factor_b}</Badge>
+                          <Badge variant="outline" className="text-xs h-4 px-1 border-slate-700">{corr.factor_b}</Badge>
                         </div>
-                        <span className="text-[10px] font-bold text-cyan-500/70">{corr.relationship}</span>
+                        <span className="text-xs font-bold text-cyan-500/70">{corr.relationship}</span>
                       </div>
                     ))}
                   </div>
@@ -950,7 +950,7 @@ function RegionDetailPanel({
               </div>
             ) : (
               <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center">
-                <span className="text-[10px] text-slate-500 uppercase">Awaiting detailed inference stream</span>
+                <span className="text-xs text-slate-500 uppercase">Awaiting detailed inference stream</span>
               </div>
             )}
           </div>
@@ -961,7 +961,7 @@ function RegionDetailPanel({
               <HistoryIcon className="w-3.5 h-3.5 text-cyan-500" />
               Verified Groundsource Events
               {region.floodEvents && region.floodEvents.length > 0 && (
-                <Badge className="bg-cyan-500/20 text-cyan-400 text-[9px] h-4 border-none">
+                <Badge className="bg-cyan-500/20 text-cyan-400 text-xs h-4 border-none">
                   {region.floodEvents.length} Recent
                 </Badge>
               )}
@@ -973,14 +973,14 @@ function RegionDetailPanel({
                   <div key={event.id || i} className="p-3 rounded-lg bg-slate-800/30 border border-slate-700/30 space-y-2 group hover:bg-slate-800/50 transition-colors">
                     <div className="flex justify-between items-start">
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase">{new Date(event.eventDate).toLocaleDateString()}</span>
+                        <span className="text-xs font-bold text-slate-500 uppercase">{new Date(event.eventDate).toLocaleDateString()}</span>
                         <span className="text-xs font-bold text-slate-200">Flood Inundation Detected</span>
                       </div>
-                      <Badge variant="outline" className="text-[9px] border-rose-500/50 text-rose-400 bg-rose-500/10">
+                      <Badge variant="outline" className="text-xs border-rose-500/50 text-rose-400 bg-rose-500/10">
                         Severity: {(event.severity * 100).toFixed(0)}%
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-4 text-[10px] text-slate-400">
+                    <div className="flex items-center gap-4 text-xs text-slate-400">
                       <div className="flex items-center gap-1">
                         <Maximize2 className="w-3 h-3" />
                         {event.affectedAreaKm2.toFixed(1)} km²
@@ -995,13 +995,13 @@ function RegionDetailPanel({
               ) : (
                 <div className="p-8 rounded-lg border border-dashed border-slate-800 text-center">
                   <ShieldCheck className="w-6 h-6 text-slate-700 mx-auto mb-2 opacity-30" />
-                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black">No recent events detected</p>
-                  <p className="text-[9px] text-slate-600 mt-1 uppercase">Continuous monitoring active</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-widest font-black">No recent events detected</p>
+                  <p className="text-xs text-slate-600 mt-1 uppercase">Continuous monitoring active</p>
                 </div>
               )}
               
               {region.floodEvents && region.floodEvents.length > 5 && (
-                <Button variant="ghost" className="w-full h-8 text-[10px] text-slate-500 hover:text-cyan-400 font-bold uppercase tracking-widest">
+                <Button variant="ghost" className="w-full h-8 text-xs text-slate-500 hover:text-cyan-400 font-bold uppercase tracking-widest">
                   View full event history
                 </Button>
               )}
@@ -1316,8 +1316,8 @@ export default function AquaSDGPlatform() {
               onClick={() => setActiveTab('explorer')}
               className={activeTab === 'explorer' ? 'bg-cyan-600 hover:bg-cyan-500' : 'text-slate-400'}
             >
-              <Database className="w-4 h-4 mr-2" />
-              Data Center
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Investment Simulator
             </Button>
           </div>
           
@@ -1438,22 +1438,14 @@ export default function AquaSDGPlatform() {
                     <div className="p-4 border-t border-slate-800/50 bg-slate-900/50 shrink-0">
                       <div className="space-y-2.5">
                         <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 pl-1">
-                          <RefreshCw className="w-3.5 h-3.5 text-emerald-500 animate-spin-slow" />
+                          <Database className="w-3.5 h-3.5 text-slate-500" />
                           Data Sources
                         </h4>
-                        <div className="space-y-2">
-                          <LiveDataSource
-                            title="World Bank Open Data"
-                            status="live"
-                            lastUpdated="SDG 6 indicators • Hourly cache"
-                            recordCount="36 regions"
-                          />
-                          <LiveDataSource
-                            title="Risk Classification Engine"
-                            status="live"
-                            lastUpdated={new Date().toLocaleString()}
-                            recordCount={`${regions.length} regions`}
-                          />
+                        <div className="space-y-1 text-xs text-slate-400">
+                          <div>World Bank (2020–2024)</div>
+                          <div>WHO/UNICEF JMP</div>
+                          <div>FAO AQUASTAT</div>
+                          <div className="text-[10px] text-slate-600 pt-1">Last updated: Jan 2024</div>
                         </div>
                       </div>
                     </div>
@@ -1510,7 +1502,7 @@ export default function AquaSDGPlatform() {
             />
           ) : (
             <div className="flex-1 overflow-hidden">
-              <GroundsourceExplorer />
+              <InvestmentSimulator regions={filteredRegions} />
             </div>
           )}
         </div>
@@ -1518,7 +1510,7 @@ export default function AquaSDGPlatform() {
         {/* Footer */}
         <footer className="h-10 border-t border-slate-800/50 bg-slate-900/95 flex items-center px-4 text-[10px] text-slate-500 shrink-0">
           <div className="flex items-center gap-4">
-            <span>© 2024 AquaSDG</span>
+            <span>© 2025 AquaSDG</span>
             <span>•</span>
             <span>Data: World Bank, WHO/UNICEF JMP, FAO AQUASTAT</span>
           </div>
