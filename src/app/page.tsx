@@ -355,7 +355,7 @@ function SettingsModal({
               className="bg-slate-800 border-slate-700"
             />
             <p className="text-xs text-slate-500 mt-1">
-              Enables FloodHub, Groundsource, and Gemini AI integration
+              Enables Gemini AI policy analysis
             </p>
           </div>
           
@@ -1439,17 +1439,17 @@ export default function AquaSDGPlatform() {
                       <div className="space-y-2.5">
                         <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 pl-1">
                           <RefreshCw className="w-3.5 h-3.5 text-emerald-500 animate-spin-slow" />
-                          Live Data Intelligence
+                          Data Sources
                         </h4>
                         <div className="space-y-2">
                           <LiveDataSource
-                            title="Google Groundsource"
+                            title="World Bank Open Data"
                             status="live"
-                            lastUpdated="2.6M events • Real-time"
-                            recordCount="2.6M events"
+                            lastUpdated="SDG 6 indicators • Hourly cache"
+                            recordCount="36 regions"
                           />
                           <LiveDataSource
-                            title="ML Risk Model"
+                            title="Risk Classification Engine"
                             status="live"
                             lastUpdated={new Date().toLocaleString()}
                             recordCount={`${regions.length} regions`}
@@ -1520,7 +1520,7 @@ export default function AquaSDGPlatform() {
           <div className="flex items-center gap-4">
             <span>© 2024 AquaSDG</span>
             <span>•</span>
-            <span>Data: Google Groundsource, FloodHub, SDG 6 Portal</span>
+            <span>Data: World Bank, WHO/UNICEF JMP, FAO AQUASTAT</span>
           </div>
           <div className="ml-auto flex items-center gap-4">
             <span>{regions.length} regions • {statistics?.countries || 0} countries</span>
