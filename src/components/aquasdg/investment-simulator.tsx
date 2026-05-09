@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, TrendingUp, Users, DollarSign, Globe } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import type { Region } from '@/lib/aquasdg/types';
 import { formatPopulation, formatCurrency } from '@/lib/aquasdg/utils';
 
@@ -187,6 +188,34 @@ export function InvestmentSimulator({ regions }: { regions: Region[] }) {
                     </tbody>
                   </table>
                 </div>
+              </CardContent>
+            </Card>
+            
+            {/* Budget Allocation Chart */}
+            <Card className="bg-slate-900 border-slate-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-white">Budget Allocation by Region</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={Math.max(150, result.allocations.length * 32)}>
+                  <BarChart
+                    layout="vertical"
+                    data={result.allocations.map(a => ({
+                      name: a.regionName,
+                      budget: +(a.allocatedBudget / 1e6).toFixed(1),
+                    }))}
+                    margin={{ left: 80, right: 20, top: 5, bottom: 5 }}
+                  >
+                    <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 10 }} unit="M" />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#cbd5e1', fontSize: 10 }} width={75} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
+                      labelStyle={{ color: '#f1f5f9' }}
+                      formatter={(v: number) => [`$${v}M`, 'Budget']}
+                    />
+                    <Bar dataKey="budget" fill="#22d3ee" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           </div>

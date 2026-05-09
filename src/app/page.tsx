@@ -107,6 +107,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { InvestmentSimulator } from '@/components/aquasdg/investment-simulator';
+import { DataSources } from '@/components/aquasdg/data-sources';
 
 import {
   type Region,
@@ -1441,12 +1442,7 @@ export default function AquaSDGPlatform() {
                           <Database className="w-3.5 h-3.5 text-slate-500" />
                           Data Sources
                         </h4>
-                        <div className="space-y-1 text-xs text-slate-400">
-                          <div>World Bank (2020–2024)</div>
-                          <div>WHO/UNICEF JMP</div>
-                          <div>FAO AQUASTAT</div>
-                          <div className="text-[10px] text-slate-600 pt-1">Last updated: Jan 2024</div>
-                        </div>
+                        <DataSources />
                       </div>
                     </div>
                   </motion.aside>
