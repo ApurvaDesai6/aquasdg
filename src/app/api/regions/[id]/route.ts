@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRegionById } from '@/lib/data';
 import { classifyRegion, getRecommendation, getDeepInsights } from '@/lib/classifier';
+import { getSatelliteWaterData, getPrecipitationTrend } from '@/lib/google-earth-engine';
+import { getFloodRiskProfile } from '@/lib/flood-data';
+import { getWaterInfrastructure } from '@/lib/infrastructure-data';
+
+async function withTimeout<T>(p: Promise<T>, ms = 10000): Promise<T | null> {
+  try { return await Promise.race([p, new Promise<never>((_, r) => setTimeout(() => r('timeout'), ms))]); }
+  catch { return null; }
+}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,7 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
   }
 
-  return NextResponse.json({
+  const base = {
     id: region.id, name: region.name, country: region.country,
     region_type: region.regionType,
     coordinates: region.coordinates,
@@ -51,5 +59,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       risk_factors: riskFactors,
       recommendation: getRecommendation(riskLevel, region),
     },
+  };
+
+  const enriched = request.nextUrl.searchParams.get('enriched') === 'true';
+  if (!enriched) return NextResponse.json(base);
+
+  const { lat, lng } = region.coordinates;
+  const [satellite, precipitation, floods, infrastructure] = await Promise.all([
+    withTimeout(getSatelliteWaterData(lat, lng, id)),
+    withTimeout(getPrecipitationTrend(lat, lng, id)),
+    withTimeout(getFloodRiskProfile(id, region.country)),
+    withTimeout(getWaterInfrastructure(lat, lng, id, region.population)),
+  ]);
+
+  return NextResponse.json({
+    ...base,
+    enriched: { satellite, precipitation, floods, infrastructure },
+    dataSource: 'Multi-source: World Bank + JRC + Open-Meteo + GDACS + OpenStreetMap',
+    lastUpdated: new Date().toISOString(),
   });
 }
