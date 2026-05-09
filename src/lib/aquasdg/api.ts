@@ -40,7 +40,7 @@ export async function getRegions(params?: {
   if (params?.limit) searchParams.set('limit', String(params.limit));
   
   const queryString = searchParams.toString();
-  const endpoint = `/api/regions${queryString ? `&${queryString}` : ''}`;
+  const endpoint = `/api/regions${queryString ? `?${queryString}` : ''}`;
   
   return fetchFromMLService<typeof endpoint extends string ? any : never>(endpoint);
 }

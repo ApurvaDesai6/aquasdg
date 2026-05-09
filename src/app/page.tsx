@@ -1092,7 +1092,7 @@ export default function AquaSDGPlatform() {
       setIsLoading(true);
       try {
         const [regionsRes, statsRes] = await Promise.all([
-          fetch('/api/regions&limit=200'),
+          fetch('/api/regions?limit=200'),
           fetch('/api/statistics')
         ]);
         
@@ -1198,7 +1198,7 @@ export default function AquaSDGPlatform() {
       const data = await res.json();
       if (data.status === 'success') {
         // Refresh local data
-        const regionsRes = await fetch('/api/regions&limit=200');
+        const regionsRes = await fetch('/api/regions?limit=200');
         const rawRegions = await regionsRes.json();
         
         // Transformed regions
