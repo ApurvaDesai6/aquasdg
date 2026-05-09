@@ -1,0 +1,12 @@
+[ml-service] Installing dependencies...
+bun install v1.3.10 (30e609e0)
+No packages! Deleted empty lockfile
+
+[8.00ms] done
+[ml-service] Running bun run dev...
+$ python index.py
+Traceback (most recent call last):
+  File "/home/z/my-project/mini-services/ml-service/index.py", line 12, in <module>
+    from fastapi import FastAPI, HTTPException, Query
+ModuleNotFoundError: No module named 'fastapi'
+error: script "dev" exited with code 1
