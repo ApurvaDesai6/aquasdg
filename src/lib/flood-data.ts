@@ -1,7 +1,8 @@
 // src/lib/flood-data.ts
-// Real flood event data from UN OCHA ReliefWeb API (free, no auth required)
+// Real flood event data from GDACS (Global Disaster Alert and Coordination System)
+// UN-backed, free, no auth required. Source: GloFAS (Copernicus/EU)
 
-const RELIEFWEB_API = 'https://api.reliefweb.int/v1/disasters';
+const GDACS_API = 'https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH';
 
 export interface FloodEvent {
   id: string;
@@ -26,55 +27,77 @@ export interface FloodRiskProfile {
   dataSource: string;
 }
 
-interface ReliefWebDisaster {
-  id: string;
-  fields: {
+// ISO 3166-1 alpha-3 codes for GDACS country filter
+const COUNTRY_ISO3: Record<string, string> = {
+  Kenya: 'KEN', Bangladesh: 'BGD', India: 'IND', Pakistan: 'PAK',
+  Mozambique: 'MOZ', Nigeria: 'NGA', Brazil: 'BRA', China: 'CHN',
+  Indonesia: 'IDN', Philippines: 'PHL', Thailand: 'THA', Vietnam: 'VNM',
+};
+
+function alertToSeverity(alert: string): FloodEvent['severity'] {
+  switch (alert) {
+    case 'Red': return 'catastrophic';
+    case 'Orange': return 'major';
+    case 'Green': return 'moderate';
+    default: return 'minor';
+  }
+}
+
+interface GDACSFeature {
+  properties: {
+    eventid: number;
+    episodeid: number;
     name: string;
-    date?: { created?: string };
-    country?: { name: string }[];
-    type?: { name: string }[];
-    description?: string;
-    status?: string;
+    description: string;
+    alertlevel: string;
+    country: string;
+    fromdate: string;
+    todate: string;
+    url: { report: string };
+    affectedcountries?: { countryname: string }[];
+    severitydata?: { severity: number };
   };
 }
 
-function inferSeverity(name: string): FloodEvent['severity'] {
-  const lower = name.toLowerCase();
-  if (lower.includes('catastroph') || lower.includes('devastating')) return 'catastrophic';
-  if (lower.includes('severe') || lower.includes('major') || lower.includes('deadly')) return 'major';
-  if (lower.includes('minor') || lower.includes('small')) return 'minor';
-  return 'moderate';
-}
-
-function parseReliefWebResponse(data: { data?: ReliefWebDisaster[] }): FloodEvent[] {
-  if (!data?.data) return [];
-  return data.data.map((item) => ({
-    id: String(item.id),
-    date: item.fields.date?.created ?? '',
-    country: item.fields.country?.[0]?.name ?? 'Unknown',
-    severity: inferSeverity(item.fields.name),
-    affectedPeople: 0, // ReliefWeb disasters endpoint doesn't include affected count
-    description: item.fields.name,
-    source: 'UN OCHA ReliefWeb',
-    sourceUrl: `https://reliefweb.int/disaster/${item.id}`,
-  }));
+function parseGDACS(data: { features?: GDACSFeature[] }): FloodEvent[] {
+  if (!data?.features) return [];
+  return data.features.map((f) => {
+    const p = f.properties;
+    return {
+      id: `${p.eventid}-${p.episodeid}`,
+      date: p.fromdate,
+      country: p.country,
+      severity: alertToSeverity(p.alertlevel),
+      affectedPeople: 0,
+      description: p.description || p.name,
+      source: 'GDACS (UN/EU - GloFAS)',
+      sourceUrl: p.url?.report ?? `https://www.gdacs.org/report.aspx?eventid=${p.eventid}&eventtype=FL`,
+    };
+  });
 }
 
 export async function getFloodEvents(country: string, limit = 20): Promise<FloodEvent[]> {
-  const url = `${RELIEFWEB_API}?appname=aquasdg&filter[field]=type&filter[value]=Flood&filter[field]=country&filter[value]=${encodeURIComponent(country)}&limit=${limit}&sort[]=date:desc&fields[include][]=name&fields[include][]=date&fields[include][]=country&fields[include][]=type&fields[include][]=status`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`ReliefWeb API error: ${res.status}`);
-  return parseReliefWebResponse(await res.json());
+  const iso3 = COUNTRY_ISO3[country] ?? country;
+  const to = new Date().toISOString().split('T')[0];
+  const from = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000 * 3).toISOString().split('T')[0]; // 3 years back
+  const url = `${GDACS_API}?eventlist=FL&country=${iso3}&fromDate=${from}&toDate=${to}&alertlevel=Green;Orange;Red`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`GDACS API error: ${res.status}`);
+  const events = parseGDACS(await res.json());
+  return events.slice(0, limit);
 }
 
 export async function getRecentFloods(limit = 20): Promise<FloodEvent[]> {
-  const url = `${RELIEFWEB_API}?appname=aquasdg&filter[field]=type&filter[value]=Flood&limit=${limit}&sort[]=date:desc&fields[include][]=name&fields[include][]=date&fields[include][]=country&fields[include][]=type&fields[include][]=status`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`ReliefWeb API error: ${res.status}`);
-  return parseReliefWebResponse(await res.json());
+  const to = new Date().toISOString().split('T')[0];
+  const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 90 days
+  const url = `${GDACS_API}?eventlist=FL&fromDate=${from}&toDate=${to}&alertlevel=Green;Orange;Red`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`GDACS API error: ${res.status}`);
+  const events = parseGDACS(await res.json());
+  return events.slice(0, limit);
 }
 
-// EM-DAT published statistics for flood risk scoring
+// EM-DAT published statistics (Source: EM-DAT, CRED, UCLouvain, 2000-2024)
 const EMDAT_STATS: Record<string, { events: number; years: number; avgAffected: number }> = {
   Kenya: { events: 47, years: 24, avgAffected: 230000 },
   Bangladesh: { events: 78, years: 24, avgAffected: 5200000 },
@@ -86,7 +109,7 @@ const EMDAT_STATS: Record<string, { events: number; years: number; avgAffected: 
 export async function getFloodRiskProfile(regionId: string, country: string): Promise<FloodRiskProfile> {
   const events = await getFloodEvents(country, 50);
   const stats = EMDAT_STATS[country];
-  const avgPerYear = stats ? stats.events / stats.years : events.length / 5;
+  const avgPerYear = stats ? stats.events / stats.years : events.length / 3;
   const avgAffected = stats?.avgAffected ?? 0;
   const majorEvents = events.filter((e) => e.severity === 'major' || e.severity === 'catastrophic');
 
@@ -98,6 +121,6 @@ export async function getFloodRiskProfile(regionId: string, country: string): Pr
     lastMajorFlood: majorEvents[0]?.date ?? null,
     floodFrequencyScore: Math.min(avgPerYear / 10, 1),
     floodSeverityScore: Math.min(avgAffected / 10000000, 1),
-    dataSource: 'UN OCHA ReliefWeb + EM-DAT (CRED, UCLouvain)',
+    dataSource: 'GDACS (UN/EU GloFAS) + EM-DAT (CRED, UCLouvain)',
   };
 }
