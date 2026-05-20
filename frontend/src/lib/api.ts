@@ -103,6 +103,39 @@ export interface Statistics {
   data_sources: { name: string; status: string; coverage: string }[];
 }
 
+export interface NewsEvent {
+  id: string;
+  title: string;
+  date: string;
+  type: string;
+  countries: string[];
+  country_codes: string[];
+  status?: string;
+  description: string;
+  source: string;
+  url: string;
+  alert_level?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface NewsResponse {
+  count: number;
+  events: NewsEvent[];
+  sources: string[];
+  fetched_at: string;
+}
+
+export interface RegionNewsResponse {
+  region_id: string;
+  region_name: string;
+  country: string;
+  count: number;
+  events: NewsEvent[];
+  source: string;
+  fetched_at: string;
+}
+
 export const api = {
   getRegions: (params?: { country?: string; risk_level?: string }) => {
     const query = new URLSearchParams();
@@ -160,4 +193,14 @@ export const api = {
         }),
       }
     ),
+
+  getRecentNews: (limit?: number) => {
+    const query = limit ? `?limit=${limit}` : "";
+    return fetchApi<NewsResponse>(`/api/news/recent${query}`);
+  },
+
+  getRegionNews: (regionId: string, limit?: number) => {
+    const query = limit ? `?limit=${limit}` : "";
+    return fetchApi<RegionNewsResponse>(`/api/news/region/${regionId}${query}`);
+  },
 };

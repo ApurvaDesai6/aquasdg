@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, type NewsEvent } from "@/lib/api";
 import { useAppStore } from "@/store/app-store";
 import { riskColor, formatNumber, formatCurrency } from "@/lib/utils";
 import {
@@ -65,6 +65,9 @@ export function RegionDetail() {
         <div className="h-[180px] border-b border-border p-2">
           <RadarView indicators={ind} />
         </div>
+
+        {/* Recent Events */}
+        <RegionNewsBlock regionId={r.id} />
 
         {/* Insights */}
         <InsightsBlock regionId={r.id} />
@@ -187,6 +190,67 @@ function InterventionsBlock({ regionId }: { regionId: string }) {
               </div>
             </div>
           ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RegionNewsBlock({ regionId }: { regionId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["region-news", regionId],
+    queryFn: () => api.getRegionNews(regionId, 5),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const typeColor = (type: string): string => {
+    switch (type.toLowerCase()) {
+      case "flood": return "#3b82f6";
+      case "drought": return "#f59e0b";
+      case "storm":
+      case "cyclone": return "#8b5cf6";
+      case "epidemic": return "#ef4444";
+      default: return "#06b6d4";
+    }
+  };
+
+  return (
+    <div className="border-b border-border">
+      <div className="panel-header">
+        <span className="flex items-center gap-1.5">
+          <span className="w-1 h-1 rounded-full bg-accent-blue live-dot" />
+          Recent Events
+        </span>
+        <span className="text-[8px] text-accent-blue">ReliefWeb</span>
+      </div>
+      <div className="divide-y divide-border/30">
+        {isLoading ? (
+          <div className="p-2 text-[10px] text-text-muted">Fetching events...</div>
+        ) : data?.events && data.events.length > 0 ? (
+          data.events.slice(0, 5).map((event: NewsEvent) => (
+            <div key={event.id} className="px-2 py-1.5">
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="w-1 h-1 rounded-full shrink-0"
+                  style={{ background: typeColor(event.type) }}
+                />
+                <span
+                  className="text-[8px] font-medium uppercase"
+                  style={{ color: typeColor(event.type) }}
+                >
+                  {event.type}
+                </span>
+                <span className="text-[8px] text-text-muted ml-auto">
+                  {event.date ? new Date(event.date).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : ""}
+                </span>
+              </div>
+              <div className="text-[9px] text-text-secondary mt-0.5 leading-snug line-clamp-2">
+                {event.title}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="p-2 text-[10px] text-text-muted">No recent events found.</div>
         )}
       </div>
     </div>

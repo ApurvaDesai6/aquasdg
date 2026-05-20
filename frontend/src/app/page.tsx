@@ -11,6 +11,7 @@ import { RegionDetail } from "@/components/region-detail";
 import { SimulationPanel } from "@/components/simulation-panel";
 import { InsightsPanel } from "@/components/insights-panel";
 import { CorrelationPanel } from "@/components/correlation-panel";
+import { NewsFeed } from "@/components/news-feed";
 
 export default function Home() {
   const { data: regions, isLoading } = useQuery({
@@ -54,8 +55,11 @@ export default function Home() {
             <div className="flex-1 border-r border-border">
               <CorrelationPanel regions={regions} />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 border-r border-border">
               <InsightsPanel regions={regions} />
+            </div>
+            <div className="flex-1">
+              <NewsFeed />
             </div>
           </div>
         </div>

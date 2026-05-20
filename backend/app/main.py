@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-from .routers import regions, simulation, policy, statistics, agent
+from .routers import regions, simulation, policy, statistics, agent, news
 from .services.regions import load_all_regions
 
 
@@ -36,6 +36,7 @@ app.include_router(simulation.router)
 app.include_router(policy.router)
 app.include_router(statistics.router)
 app.include_router(agent.router)
+app.include_router(news.router)
 
 
 @app.get("/api/health")

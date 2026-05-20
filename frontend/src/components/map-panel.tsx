@@ -7,7 +7,69 @@ import type { Region } from "@/lib/api";
 import { useAppStore } from "@/store/app-store";
 import { riskColor, formatNumber } from "@/lib/utils";
 
-type LayerMode = "risk" | "heatmap" | "clusters";
+type LayerMode = "risk" | "heatmap" | "connections";
+
+/**
+ * Generate connection lines between high-risk regions and nearby water-rich regions.
+ * This shows potential resource-sharing corridors.
+ */
+function buildConnectionsGeoJSON(regions: Region[]): GeoJSON.FeatureCollection {
+  const highRisk = regions.filter(
+    (r) => r.risk_level === "critical" || r.risk_level === "high"
+  );
+  const waterRich = regions.filter(
+    (r) => r.indicators.groundwater_potential >= 0.5 || r.indicators.precipitation_mm > 1000
+  );
+
+  const features: GeoJSON.Feature[] = [];
+
+  for (const source of highRisk) {
+    // Find the 2 nearest water-rich regions (that aren't in the same city)
+    const candidates = waterRich
+      .filter((t) => t.id !== source.id)
+      .map((t) => ({
+        target: t,
+        dist: Math.sqrt(
+          Math.pow(source.latitude - t.latitude, 2) +
+          Math.pow(source.longitude - t.longitude, 2)
+        ),
+      }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 2);
+
+    for (const { target, dist } of candidates) {
+      // Only connect if within ~15 degrees (~1500km)
+      if (dist > 15) continue;
+
+      // Compute a "connection strength" based on how complementary the regions are
+      const strength = Math.min(
+        1,
+        (source.indicators.composite_risk + target.indicators.groundwater_potential) / 2
+      );
+
+      features.push({
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [source.longitude, source.latitude],
+            [target.longitude, target.latitude],
+          ],
+        },
+        properties: {
+          source_name: source.name,
+          target_name: target.name,
+          source_risk: source.risk_level,
+          target_gw: target.indicators.groundwater_potential,
+          strength,
+          distance_deg: dist,
+        },
+      });
+    }
+  }
+
+  return { type: "FeatureCollection", features };
+}
 
 export function MapPanel({ regions }: { regions: Region[] }) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -57,8 +119,7 @@ export function MapPanel({ regions }: { regions: Region[] }) {
     };
   }, []);
 
-  // Use a GeoJSON source + circle layer instead of DOM markers
-  // This avoids all the hover/positioning issues with HTML markers
+  // Update layers when mode or regions change
   useEffect(() => {
     if (!mapRef.current || !mapReady || !regions.length) return;
     const map = mapRef.current;
@@ -68,14 +129,19 @@ export function MapPanel({ regions }: { regions: Region[] }) {
     markersRef.current = [];
 
     // Remove old layers/sources
-    if (map.getLayer("regions-circle")) map.removeLayer("regions-circle");
-    if (map.getLayer("regions-circle-stroke")) map.removeLayer("regions-circle-stroke");
-    if (map.getLayer("regions-labels")) map.removeLayer("regions-labels");
-    if (map.getLayer("heatmap-layer")) map.removeLayer("heatmap-layer");
-    if (map.getSource("regions-source")) map.removeSource("regions-source");
-    if (map.getSource("heatmap-source")) map.removeSource("heatmap-source");
+    const layersToRemove = [
+      "regions-circle", "regions-circle-stroke", "regions-labels",
+      "heatmap-layer", "connections-lines", "connections-glow",
+    ];
+    for (const id of layersToRemove) {
+      if (map.getLayer(id)) map.removeLayer(id);
+    }
+    const sourcesToRemove = ["regions-source", "heatmap-source", "connections-source"];
+    for (const id of sourcesToRemove) {
+      if (map.getSource(id)) map.removeSource(id);
+    }
 
-    // Build GeoJSON
+    // Build GeoJSON for regions
     const geojson: GeoJSON.FeatureCollection = {
       type: "FeatureCollection",
       features: regions.map((r) => ({
@@ -96,12 +162,15 @@ export function MapPanel({ regions }: { regions: Region[] }) {
           precipitation: r.indicators.precipitation_mm,
           flood_risk: r.indicators.flood_risk,
           groundwater: r.indicators.groundwater_potential,
+          drought_risk: r.indicators.drought_risk,
+          climate_vulnerability: r.indicators.climate_vulnerability,
         },
       })),
     };
 
     map.addSource("regions-source", { type: "geojson", data: geojson });
 
+    // Heatmap mode
     if (layerMode === "heatmap") {
       map.addLayer({
         id: "heatmap-layer",
@@ -127,7 +196,71 @@ export function MapPanel({ regions }: { regions: Region[] }) {
       });
     }
 
-    // Circle fill layer
+    // Connections mode: draw arc lines
+    if (layerMode === "connections") {
+      const connectionsGeoJSON = buildConnectionsGeoJSON(regions);
+      map.addSource("connections-source", { type: "geojson", data: connectionsGeoJSON });
+
+      // Glow effect layer (wider, more transparent)
+      map.addLayer({
+        id: "connections-glow",
+        type: "line",
+        source: "connections-source",
+        paint: {
+          "line-color": [
+            "interpolate",
+            ["linear"],
+            ["get", "strength"],
+            0.3, "#06b6d4",
+            0.5, "#8b5cf6",
+            0.8, "#ef4444",
+          ],
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["get", "strength"],
+            0.3, 3,
+            0.8, 6,
+          ],
+          "line-opacity": 0.15,
+          "line-blur": 3,
+        },
+      });
+
+      // Main connection lines
+      map.addLayer({
+        id: "connections-lines",
+        type: "line",
+        source: "connections-source",
+        paint: {
+          "line-color": [
+            "interpolate",
+            ["linear"],
+            ["get", "strength"],
+            0.3, "#06b6d4",
+            0.5, "#8b5cf6",
+            0.8, "#ef4444",
+          ],
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["get", "strength"],
+            0.3, 1,
+            0.8, 2.5,
+          ],
+          "line-opacity": [
+            "interpolate",
+            ["linear"],
+            ["get", "strength"],
+            0.3, 0.4,
+            0.8, 0.8,
+          ],
+          "line-dasharray": [2, 2],
+        },
+      });
+    }
+
+    // Circle fill layer (always present)
     map.addLayer({
       id: "regions-circle",
       type: "circle",
@@ -151,8 +284,8 @@ export function MapPanel({ regions }: { regions: Region[] }) {
           "low", "#10b981",
           "#64748b",
         ],
-        "circle-opacity": 0.6,
-        "circle-blur": 0.3,
+        "circle-opacity": layerMode === "connections" ? 0.8 : 0.6,
+        "circle-blur": layerMode === "connections" ? 0.1 : 0.3,
       },
     });
 
@@ -186,7 +319,7 @@ export function MapPanel({ regions }: { regions: Region[] }) {
       },
     });
 
-    // Labels for high/critical
+    // Labels for high/critical in risk mode
     if (layerMode === "risk") {
       map.addLayer({
         id: "regions-labels",
@@ -212,7 +345,7 @@ export function MapPanel({ regions }: { regions: Region[] }) {
     const popup = new maplibregl.Popup({
       closeButton: true,
       closeOnClick: true,
-      maxWidth: "280px",
+      maxWidth: "320px",
       className: "aqua-tooltip",
     });
 
@@ -264,7 +397,7 @@ export function MapPanel({ regions }: { regions: Region[] }) {
           {([
             { id: "risk" as const, label: "Risk Zones" },
             { id: "heatmap" as const, label: "Stress Density" },
-            { id: "clusters" as const, label: "Clusters" },
+            { id: "connections" as const, label: "Connections" },
           ]).map((mode) => (
             <button
               key={mode.id}
@@ -293,6 +426,18 @@ export function MapPanel({ regions }: { regions: Region[] }) {
             </span>
           ))}
         </div>
+        {layerMode === "connections" && (
+          <div className="mt-2 pt-1.5 border-t border-border/50">
+            <div className="text-[8px] text-text-muted mb-1">Connection Strength</div>
+            <div className="flex items-center gap-1">
+              <div className="h-1 flex-1 rounded-full bg-gradient-to-r from-[#06b6d4] via-[#8b5cf6] to-[#ef4444]" />
+            </div>
+            <div className="flex justify-between text-[7px] text-text-muted mt-0.5">
+              <span>Low</span>
+              <span>High</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stats overlay */}
@@ -314,20 +459,59 @@ export function MapPanel({ regions }: { regions: Region[] }) {
 
 function buildTooltipHTML(props: Record<string, any>): string {
   const color = riskColor(props.risk_level);
-  return `
-    <div style="background:#111620;border:1px solid #1c2433;border-radius:6px;padding:10px 12px;font-family:system-ui,-apple-system,sans-serif;font-size:10px;color:#e2e8f0;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-        <span style="font-weight:600;font-size:11px;">${props.name}</span>
-        <span style="color:${color};font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 5px;border-radius:3px;background:${color}22;border:1px solid ${color}44;">${props.risk_level}</span>
+
+  // Build mini sparkbar for key metrics
+  const metrics = [
+    { label: "Water Stress", value: props.water_stress, color: props.water_stress > 0.7 ? "#ef4444" : props.water_stress > 0.5 ? "#f59e0b" : "#06b6d4" },
+    { label: "Flood Risk", value: props.flood_risk, color: props.flood_risk > 0.6 ? "#ef4444" : props.flood_risk > 0.4 ? "#f59e0b" : "#06b6d4" },
+    { label: "Drought", value: props.drought_risk, color: props.drought_risk > 0.6 ? "#ef4444" : props.drought_risk > 0.4 ? "#f59e0b" : "#06b6d4" },
+    { label: "GW Potential", value: props.groundwater, color: props.groundwater > 0.5 ? "#10b981" : "#64748b" },
+  ];
+
+  const metricBars = metrics.map(m => `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+      <span style="width:60px;font-size:8px;color:#64748b;">${m.label}</span>
+      <div style="flex:1;height:4px;background:#1c2433;border-radius:2px;overflow:hidden;">
+        <div style="width:${(m.value * 100).toFixed(0)}%;height:100%;background:${m.color};border-radius:2px;transition:width 0.3s;"></div>
       </div>
-      <div style="color:#64748b;margin-bottom:8px;">${props.country} · ${formatNumber(props.population)}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
-        <div><div style="color:#64748b;font-size:8px;">Risk</div><div style="font-family:monospace;color:${color};font-weight:600;">${(props.composite_risk * 100).toFixed(0)}%</div></div>
-        <div><div style="color:#64748b;font-size:8px;">Access</div><div style="font-family:monospace;">${props.water_access.toFixed(0)}%</div></div>
-        <div><div style="color:#64748b;font-size:8px;">Stress</div><div style="font-family:monospace;">${(props.water_stress * 100).toFixed(0)}%</div></div>
-        <div><div style="color:#64748b;font-size:8px;">Precip</div><div style="font-family:monospace;">${props.precipitation.toFixed(0)}mm</div></div>
-        <div><div style="color:#64748b;font-size:8px;">Flood</div><div style="font-family:monospace;">${(props.flood_risk * 100).toFixed(0)}%</div></div>
-        <div><div style="color:#64748b;font-size:8px;">GW</div><div style="font-family:monospace;">${(props.groundwater * 100).toFixed(0)}%</div></div>
+      <span style="font-family:monospace;font-size:8px;color:${m.color};width:28px;text-align:right;">${(m.value * 100).toFixed(0)}%</span>
+    </div>
+  `).join("");
+
+  return `
+    <div style="background:linear-gradient(135deg, #111620 0%, #0f1318 100%);border:1px solid #1c2433;border-radius:8px;padding:12px 14px;font-family:system-ui,-apple-system,sans-serif;font-size:10px;color:#e2e8f0;min-width:240px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div>
+          <div style="font-weight:600;font-size:12px;letter-spacing:-0.01em;">${props.name}</div>
+          <div style="color:#64748b;font-size:9px;margin-top:1px;">${props.country} · Pop. ${formatNumber(props.population)}</div>
+        </div>
+        <span style="color:${color};font-size:9px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:${color}15;border:1px solid ${color}40;letter-spacing:0.03em;">${props.risk_level}</span>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:10px;padding:6px 8px;background:#0b0e14;border-radius:5px;border:1px solid #1c243366;">
+        <div style="text-align:center;flex:1;">
+          <div style="font-family:monospace;font-size:16px;font-weight:700;color:${color};line-height:1.2;">${(props.composite_risk * 100).toFixed(0)}%</div>
+          <div style="font-size:7px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Risk Score</div>
+        </div>
+        <div style="width:1px;background:#1c2433;"></div>
+        <div style="text-align:center;flex:1;">
+          <div style="font-family:monospace;font-size:16px;font-weight:700;color:${props.water_access < 40 ? '#ef4444' : '#06b6d4'};line-height:1.2;">${props.water_access.toFixed(0)}%</div>
+          <div style="font-size:7px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Water Access</div>
+        </div>
+        <div style="width:1px;background:#1c2433;"></div>
+        <div style="text-align:center;flex:1;">
+          <div style="font-family:monospace;font-size:16px;font-weight:700;color:#94a3b8;line-height:1.2;">${props.precipitation.toFixed(0)}</div>
+          <div style="font-size:7px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">mm/year</div>
+        </div>
+      </div>
+
+      <div style="margin-top:2px;">
+        ${metricBars}
+      </div>
+
+      <div style="margin-top:8px;padding-top:6px;border-top:1px solid #1c243366;display:flex;align-items:center;gap:4px;">
+        <div style="width:4px;height:4px;border-radius:50%;background:#06b6d4;animation:blink 2s ease-in-out infinite;"></div>
+        <span style="font-size:8px;color:#64748b;">Click for full analysis</span>
       </div>
     </div>
   `;
