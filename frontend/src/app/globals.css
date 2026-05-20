@@ -109,3 +109,31 @@ body {
 
 .recharts-text { font-size: 9px !important; fill: var(--text-muted) !important; }
 .recharts-cartesian-grid line { stroke: var(--border) !important; }
+
+/* MapLibre popup styling */
+.maplibregl-popup-content {
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.maplibregl-popup-tip {
+  border-top-color: #1c2433 !important;
+}
+
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: #1c2433 !important;
+}
+
+.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: #1c2433 !important;
+}
+
+.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: #1c2433 !important;
+}
+
+.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: #1c2433 !important;
+}

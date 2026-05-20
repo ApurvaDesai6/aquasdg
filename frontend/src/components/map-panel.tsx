@@ -14,11 +14,10 @@ export function MapPanel({ regions }: { regions: Region[] }) {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const [layerMode, setLayerMode] = useState<LayerMode>("risk");
-  const [hoveredRegion, setHoveredRegion] = useState<Region | null>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const { setSelectedRegion, selectedRegion } = useAppStore();
   const [mapReady, setMapReady] = useState(false);
+  const { setSelectedRegion, selectedRegion } = useAppStore();
 
+  // Initialize map once
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
@@ -58,71 +57,104 @@ export function MapPanel({ regions }: { regions: Region[] }) {
     };
   }, []);
 
-  // Render markers when map is ready and regions are loaded
+  // Render markers ONLY when regions or layerMode changes (NOT selectedRegion)
   useEffect(() => {
     if (!mapRef.current || !mapReady || !regions.length) return;
     const map = mapRef.current;
 
-    // Clear old markers
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
+    // Heatmap layer
     if (layerMode === "heatmap") {
-      // Use GeoJSON circle layers for heatmap effect
       renderHeatmap(map, regions);
     } else {
-      // Remove heatmap source if exists
       if (map.getLayer("heatmap-layer")) map.removeLayer("heatmap-layer");
       if (map.getSource("heatmap-source")) map.removeSource("heatmap-source");
     }
 
-    // Always add markers
+    // Create markers
     regions.forEach((region) => {
       const color = riskColor(region.risk_level);
       const risk = region.indicators.composite_risk;
-      const baseSize = layerMode === "heatmap" ? 6 : 8 + risk * 18;
+      const size = 8 + risk * 18;
 
       const el = document.createElement("div");
-      el.className = "aqua-marker";
-
-      const isSelected = selectedRegion?.id === region.id;
-      const size = isSelected ? baseSize * 1.4 : baseSize;
-
       el.style.cssText = `
         width: ${size}px;
         height: ${size}px;
         background: radial-gradient(circle, ${color}cc 0%, ${color}44 60%, transparent 100%);
-        border: ${isSelected ? "2px" : "1.5px"} solid ${color}${isSelected ? "ff" : "aa"};
+        border: 1.5px solid ${color}aa;
         border-radius: 50%;
         cursor: pointer;
         transition: transform 0.15s ease, box-shadow 0.15s ease;
-        box-shadow: 0 0 ${size * 0.8}px ${color}33${isSelected ? `, 0 0 ${size * 2}px ${color}55` : ""};
+        box-shadow: 0 0 ${size * 0.8}px ${color}33;
       `;
 
-      el.addEventListener("mouseenter", (e) => {
-        el.style.transform = "scale(1.4)";
-        el.style.boxShadow = `0 0 ${size * 1.5}px ${color}66`;
-        setHoveredRegion(region);
+      el.addEventListener("mouseenter", () => {
+        el.style.transform = "scale(1.5)";
+        el.style.boxShadow = `0 0 ${size * 2}px ${color}66`;
+        el.style.zIndex = "10";
       });
       el.addEventListener("mouseleave", () => {
         el.style.transform = "scale(1)";
         el.style.boxShadow = `0 0 ${size * 0.8}px ${color}33`;
-        setHoveredRegion(null);
+        el.style.zIndex = "auto";
       });
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         setSelectedRegion(region);
       });
 
+      // Use MapLibre's native popup — it positions correctly and doesn't jump
+      const popup = new maplibregl.Popup({
+        offset: [0, -(size / 2 + 4)],
+        closeButton: false,
+        closeOnClick: false,
+        className: "aqua-tooltip",
+        maxWidth: "260px",
+      }).setHTML(buildTooltipHTML(region));
+
       const marker = new maplibregl.Marker({ element: el, anchor: "center" })
         .setLngLat([region.longitude, region.latitude])
         .addTo(map);
 
+      // Show popup on hover, hide on leave
+      el.addEventListener("mouseenter", () => {
+        popup.setLngLat([region.longitude, region.latitude]).addTo(map);
+      });
+      el.addEventListener("mouseleave", () => {
+        popup.remove();
+      });
+
       markersRef.current.push(marker);
     });
-  }, [regions, layerMode, mapReady, selectedRegion, setSelectedRegion]);
+  }, [regions, layerMode, mapReady, setSelectedRegion]);
 
-  // Fly to selected region
+  // Highlight selected marker (update style without recreating)
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+
+    markersRef.current.forEach((marker, i) => {
+      const region = regions[i];
+      if (!region) return;
+      const el = marker.getElement();
+      const color = riskColor(region.risk_level);
+      const isSelected = selectedRegion?.id === region.id;
+
+      if (isSelected) {
+        el.style.border = `2.5px solid ${color}`;
+        el.style.boxShadow = `0 0 20px ${color}88, 0 0 40px ${color}44`;
+        el.style.zIndex = "20";
+      } else {
+        el.style.border = `1.5px solid ${color}aa`;
+        el.style.boxShadow = `0 0 ${(8 + region.indicators.composite_risk * 18) * 0.8}px ${color}33`;
+        el.style.zIndex = "auto";
+      }
+    });
+  }, [selectedRegion, regions, mapReady]);
+
+  // Fly to selected
   useEffect(() => {
     if (!mapRef.current || !selectedRegion || !mapReady) return;
     mapRef.current.flyTo({
@@ -132,12 +164,8 @@ export function MapPanel({ regions }: { regions: Region[] }) {
     });
   }, [selectedRegion, mapReady]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    setMousePos({ x: e.clientX, y: e.clientY });
-  }, []);
-
   return (
-    <div className="h-full relative" onMouseMove={handleMouseMove}>
+    <div className="h-full relative">
       <div ref={mapContainer} className="h-full w-full" />
 
       {/* Layer controls */}
@@ -180,7 +208,7 @@ export function MapPanel({ regions }: { regions: Region[] }) {
         </div>
       </div>
 
-      {/* Stats overlay - top right */}
+      {/* Stats overlay */}
       <div className="absolute top-2 right-12 z-20 panel rounded px-2 py-1.5 text-[9px]">
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           <span className="text-text-muted">Regions</span>
@@ -193,62 +221,42 @@ export function MapPanel({ regions }: { regions: Region[] }) {
           <span className="font-mono text-right text-accent-amber">{regions.filter(r => r.risk_level === "high").length}</span>
         </div>
       </div>
-
-      {/* Custom tooltip */}
-      {hoveredRegion && (
-        <div
-          className="fixed z-50 pointer-events-none panel rounded-md px-3 py-2 shadow-2xl"
-          style={{ left: mousePos.x + 16, top: mousePos.y - 10, maxWidth: 260 }}
-        >
-          <div className="flex items-center justify-between gap-3 mb-1">
-            <span className="text-[11px] font-medium text-text-primary">
-              {hoveredRegion.name}
-            </span>
-            <span
-              className="text-[8px] px-1 py-0.5 rounded font-bold uppercase"
-              style={{ color: riskColor(hoveredRegion.risk_level), background: `${riskColor(hoveredRegion.risk_level)}22` }}
-            >
-              {hoveredRegion.risk_level}
-            </span>
-          </div>
-          <div className="text-[9px] text-text-muted mb-1.5">
-            {hoveredRegion.country} · {formatNumber(hoveredRegion.population)}
-          </div>
-          <div className="grid grid-cols-3 gap-x-3 gap-y-0.5 text-[9px]">
-            <Stat label="Risk" value={`${(hoveredRegion.indicators.composite_risk * 100).toFixed(0)}%`} color={riskColor(hoveredRegion.risk_level)} />
-            <Stat label="Access" value={`${hoveredRegion.indicators.water_access_pct.toFixed(0)}%`} />
-            <Stat label="Stress" value={`${(hoveredRegion.indicators.water_stress * 100).toFixed(0)}%`} />
-            <Stat label="Precip" value={`${hoveredRegion.indicators.precipitation_mm.toFixed(0)}mm`} />
-            <Stat label="Flood" value={`${(hoveredRegion.indicators.flood_risk * 100).toFixed(0)}%`} />
-            <Stat label="GW" value={`${(hoveredRegion.indicators.groundwater_potential * 100).toFixed(0)}%`} />
-          </div>
-          <div className="text-[8px] text-accent-cyan mt-1.5">Click to explore →</div>
-        </div>
-      )}
     </div>
   );
 }
 
-function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div>
-      <div className="text-text-muted text-[8px]">{label}</div>
-      <div className="font-mono font-medium" style={color ? { color } : undefined}>
-        {value}
+function buildTooltipHTML(region: Region): string {
+  const color = riskColor(region.risk_level);
+  const ind = region.indicators;
+  return `
+    <div style="background:#111620;border:1px solid #1c2433;border-radius:6px;padding:10px 12px;font-family:system-ui,-apple-system,sans-serif;font-size:10px;color:#e2e8f0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-weight:600;font-size:11px;">${region.name}</span>
+        <span style="color:${color};font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 5px;border-radius:3px;background:${color}22;border:1px solid ${color}44;">${region.risk_level}</span>
       </div>
+      <div style="color:#64748b;margin-bottom:8px;">${region.country} · ${formatNumber(region.population)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+        <div><div style="color:#64748b;font-size:8px;">Risk</div><div style="font-family:monospace;color:${color};font-weight:600;">${(ind.composite_risk * 100).toFixed(0)}%</div></div>
+        <div><div style="color:#64748b;font-size:8px;">Access</div><div style="font-family:monospace;">${ind.water_access_pct.toFixed(0)}%</div></div>
+        <div><div style="color:#64748b;font-size:8px;">Stress</div><div style="font-family:monospace;">${(ind.water_stress * 100).toFixed(0)}%</div></div>
+        <div><div style="color:#64748b;font-size:8px;">Precip</div><div style="font-family:monospace;">${ind.precipitation_mm.toFixed(0)}mm</div></div>
+        <div><div style="color:#64748b;font-size:8px;">Flood</div><div style="font-family:monospace;">${(ind.flood_risk * 100).toFixed(0)}%</div></div>
+        <div><div style="color:#64748b;font-size:8px;">GW</div><div style="font-family:monospace;">${(ind.groundwater_potential * 100).toFixed(0)}%</div></div>
+      </div>
+      <div style="margin-top:6px;font-size:8px;color:#06b6d4;">Click to explore →</div>
     </div>
-  );
+  `;
 }
 
 function renderHeatmap(map: maplibregl.Map, regions: Region[]) {
   if (map.getSource("heatmap-source")) return;
 
-  const geojson = {
-    type: "FeatureCollection" as const,
+  const geojson: GeoJSON.FeatureCollection = {
+    type: "FeatureCollection",
     features: regions.map((r) => ({
-      type: "Feature" as const,
+      type: "Feature",
       geometry: {
-        type: "Point" as const,
+        type: "Point",
         coordinates: [r.longitude, r.latitude],
       },
       properties: {
